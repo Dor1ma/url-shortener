@@ -9,6 +9,7 @@ import (
 
 type Config struct {
 	DBConnStr   string
+	HTTPPort    string
 	GRPCPort    string
 	StorageType string
 }
@@ -38,6 +39,12 @@ func LoadConfig() *Config {
 		log.Println("Info: GRPC_PORT is not set, using default 50051")
 	}
 
+	httpPort := os.Getenv("HTTP_PORT")
+	if httpPort == "" {
+		httpPort = "8080"
+		log.Println("Info: HTTP_PORT is not set, using default 8080")
+	}
+
 	storageType := os.Getenv("STORAGE_TYPE")
 	if storageType == "" {
 		storageType = "in_memory"
@@ -50,6 +57,7 @@ func LoadConfig() *Config {
 	return &Config{
 		DBConnStr:   dbConnStr,
 		GRPCPort:    grpcPort,
+		HTTPPort:    httpPort,
 		StorageType: storageType,
 	}
 }

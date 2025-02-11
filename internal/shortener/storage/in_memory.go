@@ -7,7 +7,7 @@ import (
 
 type InMemoryRepository struct {
 	mu   sync.RWMutex
-	urls map[string]string // shortUrl -> originalUrl
+	urls map[string]string
 }
 
 func NewInMemoryRepository() Repository {

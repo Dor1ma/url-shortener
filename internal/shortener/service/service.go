@@ -2,8 +2,8 @@ package shortener
 
 import (
 	"context"
+	pb "github.com/Dor1ma/url-shortener/api/gen/go"
 	"github.com/Dor1ma/url-shortener/internal/shortener/storage"
-	pb "github.com/Dor1ma/url-shortener/pkg/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"math/rand"

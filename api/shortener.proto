@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package shortener;
+
+option go_package = "github.com/Dor1ma/url-shortener/gen/go;urlshortener";
+
+import "third_party/google/api/annotations.proto";
+
+service UrlShortener {
+  rpc CreateShortUrl (CreateShortUrlRequest) returns (CreateShortUrlResponse) {
+    option (google.api.http) = {
+      post: "/v1/url/shorten"
+      body: "*"
+    };
+  }
+
+  rpc GetOriginalUrl (GetOriginalUrlRequest) returns (GetOriginalUrlResponse) {
+    option (google.api.http) = {
+      get: "/v1/url/{short_url}"
+    };
+  }
+}
+
+message CreateShortUrlRequest {
+  string original_url = 1;
+}
+
+message CreateShortUrlResponse {
+  string short_url = 1;
+}
+
+message GetOriginalUrlRequest {
+  string short_url = 1;
+}
+
+message GetOriginalUrlResponse {
+  string original_url = 1;
+}

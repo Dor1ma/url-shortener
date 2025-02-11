@@ -4,17 +4,21 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/Dor1ma/url-shortener/internal/config"
-	"github.com/Dor1ma/url-shortener/internal/shortener/service"
-	"github.com/Dor1ma/url-shortener/internal/shortener/storage"
-	pb "github.com/Dor1ma/url-shortener/pkg/grpc"
-	"google.golang.org/grpc"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	pb "github.com/Dor1ma/url-shortener/api/gen/go"
+	"github.com/Dor1ma/url-shortener/internal/config"
+	"github.com/Dor1ma/url-shortener/internal/shortener/service"
+	"github.com/Dor1ma/url-shortener/internal/shortener/storage"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -40,36 +44,54 @@ func main() {
 		log.Fatalf("Unknown storage type: %s", cfg.StorageType)
 	}
 
-	service := shortener.NewService(repo)
+	go startGRPCServer(cfg.GRPCPort, repo)
 
-	address := ":" + cfg.GRPCPort
+	go startHTTPGateway(cfg.GRPCPort, cfg.HTTPPort)
+
+	waitForShutdownSignal()
+}
+
+func startGRPCServer(port string, repo storage.Repository) {
+	address := ":" + port
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterUrlShortenerServer(grpcServer, service)
+	pb.RegisterUrlShortenerServer(grpcServer, shortener.NewService(repo))
 
-	log.Printf("gRPC server is running on port %s", cfg.GRPCPort)
+	log.Printf("gRPC server is running on port %s", port)
 
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("failed to serve: %v", err)
-		}
-	}()
-
-	waitForShutdownSignal(grpcServer)
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve gRPC: %v", err)
+	}
 }
 
-func waitForShutdownSignal(grpcServer *grpc.Server) {
+func startHTTPGateway(grpcPort, httpPort string) {
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	mux := runtime.NewServeMux()
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	err := pb.RegisterUrlShortenerHandlerFromEndpoint(ctx, mux, "localhost:"+grpcPort, opts)
+	if err != nil {
+		log.Fatalf("failed to start HTTP gateway: %v", err)
+	}
+
+	log.Printf("HTTP server is running on port %s", httpPort)
+	if err := http.ListenAndServe(":"+httpPort, mux); err != nil {
+		log.Fatalf("failed to start HTTP server: %v", err)
+	}
+}
+
+func waitForShutdownSignal() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	<-sigChan
-
 	log.Println("Shutting down server gracefully...")
-	grpcServer.GracefulStop()
 	log.Println("Server stopped")
 }
 

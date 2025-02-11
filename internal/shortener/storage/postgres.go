@@ -22,7 +22,7 @@ func NewPostgresRepository(connStr string) (Repository, error) {
 
 func (r *PostgresRepository) SaveUrl(originalUrl, shortUrl string) error {
 	query := `INSERT INTO urls (original_url, short_url) VALUES ($1, $2)`
-	_, err := r.db.Exec(query, originalUrl, shortUrl) // Используем Exec вместо ExecContext
+	_, err := r.db.Exec(query, originalUrl, shortUrl)
 	if err != nil {
 		return fmt.Errorf("failed to save URL: %w", err)
 	}
