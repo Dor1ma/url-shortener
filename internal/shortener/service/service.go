@@ -32,6 +32,10 @@ func (s *Service) CreateShortUrl(ctx context.Context, req *pb.CreateShortUrlRequ
 	default:
 		originalUrl := req.GetOriginalUrl()
 
+		if len(originalUrl) > maxUrlLength {
+			return nil, status.Error(codes.FailedPrecondition, "URL exceeds maximum length")
+		}
+
 		if !isValidURL(originalUrl) {
 			return nil, status.Error(codes.FailedPrecondition, "incorrect url")
 		}
