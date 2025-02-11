@@ -29,12 +29,10 @@ func TestSaveUrlPostgres(t *testing.T) {
 
 	repo := &PostgresRepository{db: db}
 
-	// Проверяем, что URL не существует
 	mock.ExpectQuery("SELECT short_url FROM urls WHERE original_url =").
 		WithArgs("https://example.com").
 		WillReturnError(sql.ErrNoRows)
 
-	// Вставляем новую запись
 	mock.ExpectExec("INSERT INTO urls").
 		WithArgs("https://example.com", "short1").
 		WillReturnResult(sqlmock.NewResult(1, 1))
@@ -52,7 +50,6 @@ func TestSaveUrl_WhenOriginalUrlAlreadyExistsPostgres(t *testing.T) {
 
 	repo := &PostgresRepository{db: db}
 
-	// URL уже существует
 	mock.ExpectQuery("SELECT short_url FROM urls WHERE original_url =").
 		WithArgs("https://example.com").
 		WillReturnRows(sqlmock.NewRows([]string{"short_url"}).AddRow("short1"))
