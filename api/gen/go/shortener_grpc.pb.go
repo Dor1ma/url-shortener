@@ -4,7 +4,7 @@
 // - protoc             v6.30.0--rc1
 // source: shortener.proto
 
-package shortener
+package urlshortener
 
 import (
 	context "context"
