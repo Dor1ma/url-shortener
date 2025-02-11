@@ -8,6 +8,12 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const (
+	maxOpenConnections = 10
+	minIdleConnections = 5
+	connMaxLifetime    = 0
+)
+
 type PostgresRepository struct {
 	db *sql.DB
 }
@@ -17,6 +23,10 @@ func NewPostgresRepository(connStr string) (Repository, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
+
+	db.SetMaxOpenConns(maxOpenConnections)
+	db.SetMaxIdleConns(minIdleConnections)
+	db.SetConnMaxLifetime(connMaxLifetime)
 
 	return &PostgresRepository{db: db}, nil
 }

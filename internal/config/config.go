@@ -35,7 +35,7 @@ func LoadConfig() *Config {
 		log.Println("Info: STORAGE_TYPE is not set, using default 'in_memory'")
 	}
 
-	if storageType != "in_memory" {
+	if storageType == "in_memory" {
 		dbHost = ""
 		dbPort = ""
 		dbUser = ""
