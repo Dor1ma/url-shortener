@@ -23,15 +23,31 @@ func getEnv(key string) string {
 }
 
 func LoadConfig() *Config {
+	var dbHost, dbPort, dbUser,
+		dbPassword, dbName string
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: No .env file found, using system environment variables")
 	}
 
-	dbHost := getEnv("POSTGRES_HOST")
-	dbPort := getEnv("POSTGRES_PORT")
-	dbUser := getEnv("POSTGRES_USER")
-	dbPassword := getEnv("POSTGRES_PASSWORD")
-	dbName := getEnv("POSTGRES_DB")
+	storageType := os.Getenv("STORAGE_TYPE")
+	if storageType == "" {
+		storageType = "in_memory"
+		log.Println("Info: STORAGE_TYPE is not set, using default 'in_memory'")
+	}
+
+	if storageType != "in_memory" {
+		dbHost = ""
+		dbPort = ""
+		dbUser = ""
+		dbPassword = ""
+		dbName = ""
+	} else {
+		dbHost = getEnv("POSTGRES_HOST")
+		dbPort = getEnv("POSTGRES_PORT")
+		dbUser = getEnv("POSTGRES_USER")
+		dbPassword = getEnv("POSTGRES_PASSWORD")
+		dbName = getEnv("POSTGRES_DB")
+	}
 
 	grpcPort := os.Getenv("GRPC_PORT")
 	if grpcPort == "" {
@@ -43,12 +59,6 @@ func LoadConfig() *Config {
 	if httpPort == "" {
 		httpPort = "8080"
 		log.Println("Info: HTTP_PORT is not set, using default 8080")
-	}
-
-	storageType := os.Getenv("STORAGE_TYPE")
-	if storageType == "" {
-		storageType = "in_memory"
-		log.Println("Info: STORAGE_TYPE is not set, using default 'in_memory'")
 	}
 
 	dbConnStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",

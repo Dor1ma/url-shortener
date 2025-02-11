@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"github.com/sirupsen/logrus"
 	"net"
 	"net/http"
 	"os"
@@ -22,53 +22,55 @@ import (
 )
 
 func main() {
+	logger := logrus.New()
+
 	cfg := config.LoadConfig()
 
 	var repo storage.Repository
 	var err error
 
 	if cfg.StorageType == "postgres" {
-		err = waitForDatabase(cfg.DBConnStr)
+		err = waitForDatabase(cfg.DBConnStr, logger)
 		if err != nil {
-			log.Fatalf("Error waiting for database: %v", err)
+			logger.Fatalf("Error waiting for database: %v", err)
 		}
 
 		repo, err = storage.NewPostgresRepository(cfg.DBConnStr)
 		if err != nil {
-			log.Fatalf("failed to create PostgreSQL repository: %v", err)
+			logger.Fatalf("failed to create PostgreSQL repository: %v", err)
 		}
 		defer repo.Close()
 	} else if cfg.StorageType == "in_memory" {
 		repo = storage.NewInMemoryRepository()
 	} else {
-		log.Fatalf("Unknown storage type: %s", cfg.StorageType)
+		logger.Fatalf("Unknown storage type: %s", cfg.StorageType)
 	}
 
-	go startGRPCServer(cfg.GRPCPort, repo)
+	go startGRPCServer(cfg.GRPCPort, repo, logger)
 
-	go startHTTPGateway(cfg.GRPCPort, cfg.HTTPPort)
+	go startHTTPGateway(cfg.GRPCPort, cfg.HTTPPort, logger)
 
-	waitForShutdownSignal()
+	waitForShutdownSignal(logger)
 }
 
-func startGRPCServer(port string, repo storage.Repository) {
+func startGRPCServer(port string, repo storage.Repository, logger *logrus.Logger) {
 	address := ":" + port
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		logger.Fatalf("failed to listen: %v", err)
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterUrlShortenerServer(grpcServer, shortener.NewService(repo))
+	pb.RegisterUrlShortenerServer(grpcServer, shortener.NewService(repo, logger))
 
-	log.Printf("gRPC server is running on port %s", port)
+	logger.Infof("gRPC server is running on port %s", port)
 
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve gRPC: %v", err)
+		logger.Fatalf("failed to serve gRPC: %v", err)
 	}
 }
 
-func startHTTPGateway(grpcPort, httpPort string) {
+func startHTTPGateway(grpcPort, httpPort string, logger *logrus.Logger) {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -77,25 +79,25 @@ func startHTTPGateway(grpcPort, httpPort string) {
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 	err := pb.RegisterUrlShortenerHandlerFromEndpoint(ctx, mux, "localhost:"+grpcPort, opts)
 	if err != nil {
-		log.Fatalf("failed to start HTTP gateway: %v", err)
+		logger.Fatalf("failed to start HTTP gateway: %v", err)
 	}
 
-	log.Printf("HTTP server is running on port %s", httpPort)
+	logger.Infof("HTTP server is running on port %s", httpPort)
 	if err := http.ListenAndServe(":"+httpPort, mux); err != nil {
-		log.Fatalf("failed to start HTTP server: %v", err)
+		logger.Fatalf("failed to start HTTP server: %v", err)
 	}
 }
 
-func waitForShutdownSignal() {
+func waitForShutdownSignal(logger *logrus.Logger) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	<-sigChan
-	log.Println("Shutting down server gracefully...")
-	log.Println("Server stopped")
+	logger.Info("Shutting down server gracefully...")
+	logger.Infof("Server stopped")
 }
 
-func waitForDatabase(connStr string) error {
+func waitForDatabase(connStr string, logger *logrus.Logger) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -112,7 +114,7 @@ func waitForDatabase(connStr string) error {
 					return nil
 				}
 			}
-			log.Printf("waiting for database to become available - %v", err)
+			logger.Printf("waiting for database to become available - %v", err)
 			time.Sleep(1 * time.Second)
 		}
 	}

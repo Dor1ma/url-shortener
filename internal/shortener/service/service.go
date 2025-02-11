@@ -4,6 +4,7 @@ import (
 	"context"
 	pb "github.com/Dor1ma/url-shortener/api/gen/go"
 	"github.com/Dor1ma/url-shortener/internal/shortener/storage"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"math/rand"
@@ -18,11 +19,15 @@ var shortUrlRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]{5,20}$`)
 
 type Service struct {
 	pb.UnimplementedUrlShortenerServer
-	repo storage.Repository
+	repo   storage.Repository
+	logger *logrus.Logger
 }
 
-func NewService(repo storage.Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo storage.Repository, logger *logrus.Logger) *Service {
+	return &Service{
+		repo:   repo,
+		logger: logger,
+	}
 }
 
 func (s *Service) CreateShortUrl(ctx context.Context, req *pb.CreateShortUrlRequest) (*pb.CreateShortUrlResponse, error) {
@@ -44,6 +49,7 @@ func (s *Service) CreateShortUrl(ctx context.Context, req *pb.CreateShortUrlRequ
 
 		err := s.repo.SaveUrl(originalUrl, shortUrl)
 		if err != nil {
+			s.logger.Errorf("Error in repository occured: %v", err)
 			return nil, status.Error(codes.Internal, "failed to save URL")
 		}
 
@@ -64,6 +70,7 @@ func (s *Service) GetOriginalUrl(ctx context.Context, req *pb.GetOriginalUrlRequ
 
 		originalUrl, err := s.repo.GetUrl(shortUrl)
 		if err != nil {
+			s.logger.Errorf("Error in repository occured: %v", err)
 			return nil, status.Error(codes.NotFound, "short URL not found")
 		}
 
